@@ -1,0 +1,11 @@
+1.random flip
+4.color
+
+2.random crop
+
+3.rotate
+
+
+
+5.normalize
+
