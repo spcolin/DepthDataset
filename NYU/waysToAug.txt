@@ -1,11 +1,10 @@
 1.random flip
-4.color
 
-2.random crop
+2.color
 
-3.rotate
+3.random crop
 
-
+4.rotate
 
 5.normalize
 

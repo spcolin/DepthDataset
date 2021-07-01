@@ -18,6 +18,10 @@ class NYUDataset(Dataset):
         f=open(file_path)
         self.data_path_list=json.load(f)
 
+    def __len__(self):
+
+        return len(self.data_path_list)
+
 
     def crop(self,rgb,depth):
 
@@ -44,6 +48,14 @@ class NYUDataset(Dataset):
 
         return rgb,depth
 
+
+    def rgb_norm(self,rgb):
+        rgb_mean=[0.485, 0.456, 0.406]
+        rgb_std=[0.229, 0.224, 0.225]
+
+        normalizer=transforms.Normalize(mean=rgb_mean,std=rgb_std)
+
+        return normalizer(rgb)
 
 
     def __getitem__(self, item):
@@ -89,11 +101,14 @@ class NYUDataset(Dataset):
 
 
 
+
+
+
+
+
         return 0
 
-    def __len__(self):
 
-        return len(self.data_path_list)
 
 
 
