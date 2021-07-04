@@ -146,6 +146,85 @@ class NYUDataset_Train(Dataset):
         return rgb_tensor,depth_tensor
 
 
+class NYUDataset_Test(Dataset):
+
+    def __init__(self,file_path,target_height,target_width):
+        """
+        Initialization of NYUDataset Class.
+        :param file_path: the path of the file denoting all the paths of training data
+            The annotation json file is of following format:
+            [{'rgb_path':'the path to the rgb image','depth_path':'the path to the depth map img'},{},{},{},.......]
+        :param target_height: the height of tensor as input to model
+        :param target_width: the width of tensor as input to model
+        """
+
+        self.target_height=target_height
+        self.target_width=target_width
+
+        self.raw_height = 480
+        self.raw_width = 640
+
+        f=open(file_path)
+        self.data_path_list=json.load(f)
+
+    def __len__(self):
+
+        return len(self.data_path_list)
+
+
+    def rgb_norm(self,rgb):
+        """
+        transform PIL rgb image to pytorch tensor type,scale the rgb value from 0-255 to 0.0-1.0 and normalize with
+        predefined mean and std
+        :param rgb:rgb image,PIL image
+        :return:corresponding tensor
+        """
+
+        rgb_mean=[0.485, 0.456, 0.406]
+        rgb_std=[0.229, 0.224, 0.225]
+
+        normalizer=transforms.Normalize(mean=rgb_mean,std=rgb_std)
+
+        transformer=transforms.Compose([transforms.ToTensor(),
+                                        normalizer])
+
+        return transformer(rgb)
+
+    def depth_norm(self,depth,ratio):
+        """
+        transform the PIL depth map to pytorch tensor type and scale the depth value to range of [0.0,1.0]
+        :param depth: depth map,PIL image
+        :param ratio: larger object correspond to close position.Use param ratio to scale the depth value to make it accord with the resized image.
+        :return: corresponding tensor
+        """
+
+        # used to scale the depth value to the range[0.0,1.0].Modify it according to own processing method.
+        depth_scale_factor=65535
+
+        depth=transforms.ToTensor()(depth)
+
+        depth=depth/depth_scale_factor*ratio
+
+        return depth
+
+    def __getitem__(self, item):
+        rgb_path = self.data_path_list[item]['rgb_path']
+        depth_path = self.data_path_list[item]['depth_path']
+
+        rgb = Image.open(rgb_path)
+        depth = Image.open(depth_path)  # 0-65535 value
+
+        rgb = rgb.resize((self.target_width, self.target_height), Image.BILINEAR)
+
+        ratio = self.raw_height/self.target_height
+
+        rgb_tensor=self.rgb_norm(rgb)
+        depth_tensor=self.depth_norm(depth,ratio)
+
+        return rgb_tensor,depth_tensor
+
+
+
 
 
 

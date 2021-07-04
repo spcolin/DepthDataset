@@ -1,3 +1,4 @@
+Train:
 1.random flip
 
 2.color
@@ -8,3 +9,4 @@
 
 5.normalize
 
+Test:
