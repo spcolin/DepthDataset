@@ -8,7 +8,7 @@ import random
 
 
 
-class NYUDataset(Dataset):
+class NYUDataset_Train(Dataset):
 
     def __init__(self,file_path,target_height,target_width):
         """
@@ -22,6 +22,9 @@ class NYUDataset(Dataset):
 
         self.target_height=target_height
         self.target_width=target_width
+
+        self.raw_height=480
+        self.raw_width=640
 
         f=open(file_path)
         self.data_path_list=json.load(f)
@@ -41,15 +44,15 @@ class NYUDataset(Dataset):
         """
 
         # choose the height and width to crop to
-        height_list=[480,450,420,390,360,330,300,270,240,self.target_height]
-        width_list=[640,600,560,520,480,440,400,360,320,self.target_width]
+        height_list=[self.raw_height,450,420,390,360,330,300,270,240,self.target_height]
+        width_list=[self.raw_width,600,560,520,480,440,400,360,320,self.target_width]
 
         crop_height=random.choice(height_list)
         crop_width=random.choice(width_list)
 
         # generate the top left corner coordinate
-        top_left_corner_x=random.uniform(0,640-crop_width)
-        top_left_corner_y=random.uniform(0,480-crop_height)
+        top_left_corner_x=random.uniform(0,self.raw_width-crop_width)
+        top_left_corner_y=random.uniform(0,self.raw_height-crop_height)
 
         # generate the right bottom corner coordinate
         bottom_right_corner_x=top_left_corner_x+crop_width
@@ -58,14 +61,13 @@ class NYUDataset(Dataset):
         rgb=rgb.crop((top_left_corner_x,top_left_corner_y,bottom_right_corner_x,bottom_right_corner_y))
         depth=depth.crop((top_left_corner_x,top_left_corner_y,bottom_right_corner_x,bottom_right_corner_y))
 
-        # larger image correspond close position.
-        ratio=crop_height/self.target_height
-        depth=depth/ratio
-
         rgb=rgb.resize((self.target_width,self.target_height),Image.BILINEAR)
         depth=depth.resize((self.target_width,self.target_height),Image.BILINEAR)
 
-        return rgb,depth
+        # scale ratio
+        ratio=crop_height/self.target_height
+
+        return rgb,depth,ratio
 
 
     def rgb_norm(self,rgb):
@@ -84,12 +86,15 @@ class NYUDataset(Dataset):
         transformer=transforms.Compose([transforms.ToTensor(),
                                         normalizer])
 
+        # transformer = transforms.Compose([transforms.ToTensor()])
+
         return transformer(rgb)
 
-    def depth_norm(self,depth):
+    def depth_norm(self,depth,ratio):
         """
         transform the PIL depth map to pytorch tensor type and scale the depth value to range of [0.0,1.0]
         :param depth: depth map,PIL image
+        :param ratio: larger object correspond to close position.Use param ratio to scale the depth value to make it accord with the resized image.
         :return: corresponding tensor
         """
 
@@ -98,15 +103,19 @@ class NYUDataset(Dataset):
 
         depth=transforms.ToTensor()(depth)
 
-        return depth/depth_scale_factor
+        depth=depth/depth_scale_factor*ratio
+
+        return depth
 
     def __getitem__(self, item):
 
         rgb_path=self.data_path_list[item]['rgb_path']
         depth_path=self.data_path_list[item]['depth_path']
 
-        rgb=Image.open(rgb_path)
-        depth=Image.open(depth_path)
+        # crop the blank areas
+        rgb=Image.open(rgb_path).crop((8, 8, 632, 472))
+        depth=Image.open(depth_path).crop((8, 8, 632, 472))  # 0-65535 value
+        self.raw_height,self.raw_width=rgb.size
 
         # flip augmentation
         flip_flag=random.uniform(0,1)
@@ -120,19 +129,18 @@ class NYUDataset(Dataset):
 
 
         # random crop image and depth
-        rgb,depth=self.crop(rgb,depth)
+        rgb,depth,ratio=self.crop(rgb,depth)
 
         # rotate augmentation
-        degree=random.uniform(-10,10)
-        rgb=rgb.rotate(degree)
-        depth=depth.rotate(degree)
+        # degree=random.uniform(-10,10)
+        # rgb=rgb.rotate(degree,expand=False)
+        # depth=depth.rotate(degree)
 
         # transform rgb image to tensor while performing scaling and normalization
         rgb_tensor=self.rgb_norm(rgb)
 
         # transform depth map to tensor while performing scaling
-        depth_tensor=self.depth_norm(depth)
-
+        depth_tensor=self.depth_norm(depth,ratio)
 
 
         return rgb_tensor,depth_tensor
@@ -142,4 +150,12 @@ class NYUDataset(Dataset):
 
 
 saved_path="/Users/a1/workspace/DepthDataset/NYU/train_annotations.json"
-NYUDataset(saved_path,100,100)
+dt=NYUDataset_Train(saved_path,300,300)
+
+rgb,depth=dt[20]
+
+# rgb_img=transforms.ToPILImage()(rgb)
+# depth_img=transforms.ToPILImage()(depth)
+#
+# rgb_img.show()
+
