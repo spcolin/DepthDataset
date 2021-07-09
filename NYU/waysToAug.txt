@@ -9,4 +9,11 @@ Train:
 
 5.normalize
 
-Test:
+Test&Val:
+
+1.resize
+
+2.norm
+
+
+

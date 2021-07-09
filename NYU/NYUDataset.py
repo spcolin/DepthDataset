@@ -146,7 +146,7 @@ class NYUDataset_Train(Dataset):
         return rgb_tensor,depth_tensor
 
 
-class NYUDataset_Test(Dataset):
+class NYUDataset_TnV(Dataset):
 
     def __init__(self,file_path,target_height,target_width):
         """
@@ -229,7 +229,7 @@ class NYUDataset_Test(Dataset):
 
 
 saved_path="/Users/a1/workspace/DepthDataset/NYU/train_annotations.json"
-dt=NYUDataset_Train(saved_path,300,300)
+dt=NYUDataset_TnV(saved_path,300,300)
 
 rgb,depth=dt[20]
 
