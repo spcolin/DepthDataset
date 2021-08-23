@@ -10,7 +10,7 @@ import random
 
 class NYUDataset_Train(Dataset):
 
-    def __init__(self,file_path,target_height,target_width):
+    def __init__(self,file_path,target_height,target_width,scale_depth=False):
         """
         Initialization of NYUDataset Class.
         :param file_path: the path of the file denoting all the paths of training data
@@ -18,6 +18,7 @@ class NYUDataset_Train(Dataset):
             [{'rgb_path':'the path to the rgb image','depth_path':'the path to the depth map img'},{},{},{},.......]
         :param target_height: the height of tensor as input to model
         :param target_width: the width of tensor as input to model
+        :param scale_depth: whether to scale the depth map according to crop and resize
         """
 
         self.target_height=target_height
@@ -25,6 +26,8 @@ class NYUDataset_Train(Dataset):
 
         self.raw_height=480
         self.raw_width=640
+
+        self.scale_depth=scale_depth
 
         f=open(file_path)
         self.data_path_list=json.load(f)
@@ -64,11 +67,14 @@ class NYUDataset_Train(Dataset):
         rgb=rgb.resize((self.target_width,self.target_height),Image.BILINEAR)
         depth=depth.resize((self.target_width,self.target_height),Image.BILINEAR)
 
-        # scale ratio
-        ratio=crop_height/self.target_height
 
-        return rgb,depth,ratio
+        if self.scale_depth==True:
+            # scale ratio
+            ratio=crop_height/self.target_height
 
+            return rgb,depth,ratio
+        else:
+            return rgb,depth
 
     def rgb_norm(self,rgb):
         """
@@ -86,11 +92,9 @@ class NYUDataset_Train(Dataset):
         transformer=transforms.Compose([transforms.ToTensor(),
                                         normalizer])
 
-        # transformer = transforms.Compose([transforms.ToTensor()])
-
         return transformer(rgb)
 
-    def depth_norm(self,depth,ratio):
+    def depth_norm(self,depth,ratio=1.0):
         """
         transform the PIL depth map to pytorch tensor type and scale the depth value to range of [0.0,1.0]
         :param depth: depth map,PIL image
@@ -115,7 +119,7 @@ class NYUDataset_Train(Dataset):
         # crop the blank areas
         rgb=Image.open(rgb_path).crop((8, 8, 632, 472))
         depth=Image.open(depth_path).crop((8, 8, 632, 472))  # 0-65535 value
-        self.raw_height,self.raw_width=rgb.size
+        self.raw_height,self.raw_width=rgb.size  # 472*632 now
 
         # flip augmentation
         flip_flag=random.uniform(0,1)
@@ -129,7 +133,10 @@ class NYUDataset_Train(Dataset):
 
 
         # random crop image and depth
-        rgb,depth,ratio=self.crop(rgb,depth)
+        if self.scale_depth==True:
+            rgb,depth,ratio=self.crop(rgb,depth)
+        else:
+            rgb,depth=self.crop(rgb,depth)
 
         # rotate augmentation
         # degree=random.uniform(-10,10)
@@ -140,17 +147,19 @@ class NYUDataset_Train(Dataset):
         rgb_tensor=self.rgb_norm(rgb)
 
         # transform depth map to tensor while performing scaling
-        depth_tensor=self.depth_norm(depth,ratio)
-
+        if self.scale_depth==True:
+            depth_tensor=self.depth_norm(depth)
+        else:
+            depth_tensor=self.depth_norm(depth,ratio)
 
         return rgb_tensor,depth_tensor
 
 
 class NYUDataset_TnV(Dataset):
 
-    def __init__(self,file_path,target_height,target_width):
+    def __init__(self,file_path,target_height,target_width,scale_depth=False):
         """
-        Initialization of NYUDataset Class.
+        Initialization of NYUDataset Class,used for test and validation.
         :param file_path: the path of the file denoting all the paths of training data
             The annotation json file is of following format:
             [{'rgb_path':'the path to the rgb image','depth_path':'the path to the depth map img'},{},{},{},.......]
@@ -163,6 +172,8 @@ class NYUDataset_TnV(Dataset):
 
         self.raw_height = 480
         self.raw_width = 640
+
+        self.scale_depth=scale_depth
 
         f=open(file_path)
         self.data_path_list=json.load(f)
@@ -190,7 +201,7 @@ class NYUDataset_TnV(Dataset):
 
         return transformer(rgb)
 
-    def depth_norm(self,depth,ratio):
+    def depth_norm(self,depth,ratio=1.0):
         """
         transform the PIL depth map to pytorch tensor type and scale the depth value to range of [0.0,1.0]
         :param depth: depth map,PIL image
@@ -211,15 +222,23 @@ class NYUDataset_TnV(Dataset):
         rgb_path = self.data_path_list[item]['rgb_path']
         depth_path = self.data_path_list[item]['depth_path']
 
-        rgb = Image.open(rgb_path)
-        depth = Image.open(depth_path)  # 0-65535 value
+        # crop the blank areas
+        rgb = Image.open(rgb_path).crop((8, 8, 632, 472))
+        depth = Image.open(depth_path).crop((8, 8, 632, 472))  # 0-65535 value
+        self.raw_height, self.raw_width = rgb.size  # 472*632 now
 
         rgb = rgb.resize((self.target_width, self.target_height), Image.BILINEAR)
 
-        ratio = self.raw_height/self.target_height
+        if self.scale_depth:
+            ratio = self.raw_height/self.target_height
 
         rgb_tensor=self.rgb_norm(rgb)
-        depth_tensor=self.depth_norm(depth,ratio)
+
+        if self.scale_depth:
+            depth_tensor=self.depth_norm(depth,ratio)
+        else:
+            depth_tensor=self.depth_norm(depth)
+
 
         return rgb_tensor,depth_tensor
 
